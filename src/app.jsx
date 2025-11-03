@@ -1,73 +1,85 @@
-import React, { useState } from "react";
-import { motion } from "framer-motion";
-import tools from "./data/toolsData";
+import React, { useEffect, useMemo, useState } from "react";
+import toolsData from "./data/toolsData";
+import Header from "./components/Header";
+import SearchBar from "./components/SearchBar";
+import CategoryFilter from "./components/CategoryFilter";
+import ToolCard from "./components/ToolCard";
+import Favorites from "./components/Favorites";
 
 export default function App() {
-  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("All");
+  const [favIds, setFavIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("pilotx_favs") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [showFav, setShowFav] = useState(false);
 
-  const filtered = tools.filter((t) =>
-    t.name.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    localStorage.setItem("pilotx_favs", JSON.stringify(favIds));
+  }, [favIds]);
+
+  const toggleFav = (id) => {
+    setFavIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [id, ...s]));
+  };
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return toolsData.filter((t) => {
+      const inCategory = category === "All" ? true : t.category === category;
+      const inQuery =
+        !q ||
+        t.name.toLowerCase().includes(q) ||
+        t.desc.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q);
+      return inCategory && inQuery;
+    });
+  }, [query, category]);
+
+  const favoriteTools = toolsData.filter((t) => favIds.includes(t.id));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-blue-900 text-white">
-      <header className="text-center py-10">
-        <motion.h1
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-5xl font-extrabold tracking-tight"
-        >
-          <span className="bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
-            PilotX
-          </span>{" "}
-          AI Tools Hub 🚀
-        </motion.h1>
-        <p className="mt-3 text-gray-400 text-lg">
-          Discover, Explore & Use Free AI Tools Instantly
-        </p>
+    <div className="min-h-screen text-white">
+      <div className="max-w-7xl mx-auto">
+        <Header onOpenFavorites={() => setShowFav(true)} />
 
-        <div className="mt-6 flex justify-center">
-          <input
-            type="text"
-            placeholder="🔍 Search AI tools..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-3 w-80 rounded-xl bg-white/10 text-white placeholder-gray-400 outline-none border border-white/20 focus:border-purple-400 transition-all"
-          />
-        </div>
-      </header>
+        <main>
+          <SearchBar value={query} onChange={setQuery} />
+          <CategoryFilter active={category} onChange={setCategory} />
 
-      <main className="px-6 md:px-20 py-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {filtered.length ? (
-          filtered.map((tool, i) => (
-            <motion.a
-              key={i}
-              href={tool.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              whileHover={{ scale: 1.05 }}
-              className="p-5 rounded-2xl bg-white/10 hover:bg-white/20 transition-all shadow-lg backdrop-blur-lg"
-            >
-              <img src={tool.icon} alt={tool.name} className="w-12 h-12 mb-3" />
-              <h2 className="text-xl font-semibold">{tool.name}</h2>
-              <p className="text-gray-400 text-sm mt-1 line-clamp-2">
-                {tool.desc}
-              </p>
-              <div className="mt-3 text-sm text-purple-300">
-                {tool.category}
-              </div>
-            </motion.a>
-          ))
-        ) : (
-          <p className="col-span-full text-center text-gray-400 text-lg">
-            No tools found 😔
-          </p>
-        )}
-      </main>
+          <section className="px-6 md:px-12 py-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Top Tools</h2>
+              <div className="text-sm text-gray-300">{filtered.length} tools</div>
+            </div>
 
-      <footer className="py-6 text-center text-gray-500 border-t border-white/10">
-        © 2025 PilotX • Made with 💜 for AI Enthusiasts
-      </footer>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {filtered.map((tool) => (
+                <ToolCard
+                  key={tool.id}
+                  tool={tool}
+                  onToggleFav={toggleFav}
+                  isFav={favIds.includes(tool.id)}
+                />
+              ))}
+            </div>
+          </section>
+        </main>
+
+        <footer className="py-8 text-center text-gray-400">
+          © {new Date().getFullYear()} PilotX · Made with 💜
+        </footer>
+      </div>
+
+      {showFav && (
+        <Favorites
+          items={favoriteTools}
+          onClose={() => setShowFav(false)}
+        />
+      )}
     </div>
   );
 }
